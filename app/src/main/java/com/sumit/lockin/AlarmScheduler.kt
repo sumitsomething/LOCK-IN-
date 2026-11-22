@@ -51,8 +51,13 @@ object AlarmScheduler {
         }
         val pending = PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        if (Build.VERSION.SDK_INT >= 23) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target.timeInMillis, pending)
-        else alarms.setExact(AlarmManager.RTC_WAKEUP, target.timeInMillis, pending)
+        try {
+            if (Build.VERSION.SDK_INT >= 23) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target.timeInMillis, pending)
+            else alarms.setExact(AlarmManager.RTC_WAKEUP, target.timeInMillis, pending)
+        } catch (_: SecurityException) {
+            if (Build.VERSION.SDK_INT >= 23) alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target.timeInMillis, pending)
+            else alarms.set(AlarmManager.RTC_WAKEUP, target.timeInMillis, pending)
+        }
     }
 
     fun rescheduleNext(context: Context, intent: Intent) {
@@ -83,6 +88,34 @@ object AlarmScheduler {
             val pending = PendingIntent.getBroadcast(context, i, Intent(context, ReminderReceiver::class.java), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
             if (pending != null) alarms.cancel(pending)
         }
+    }
+
+    fun recordDelivery(context: Context, intent: Intent) {
+        if (intent.getStringExtra("type") != "builtin") {
+            restore(context)
+            return
+        }
+        val prefs = context.getSharedPreferences("lockin_native", Context.MODE_PRIVATE)
+        val raw = prefs.getString("payload", null) ?: return
+        try {
+            val root = JSONObject(raw)
+            val state = root.getJSONObject("state")
+            val slot = intent.getIntExtra("id", -1)
+            val sent = state.optJSONArray("sentToday") ?: org.json.JSONArray()
+            var already = false
+            for (i in 0 until sent.length()) if (sent.optInt(i) == slot) already = true
+            if (!already && slot in 0..4) {
+                sent.put(slot)
+                state.put("sentToday", sent)
+                state.put("completed", (state.optInt("completed") + 1).coerceAtMost(500))
+                if (sent.length() >= 5) {
+                    state.put("sentToday", org.json.JSONArray())
+                    state.put("day", if (state.optInt("day", 1) >= 100) 1 else state.optInt("day", 1) + 1)
+                }
+                prefs.edit().putString("payload", root.toString()).apply()
+                sync(context, root)
+            } else restore(context)
+        } catch (_: Exception) { }
     }
 
     fun restore(context: Context) {

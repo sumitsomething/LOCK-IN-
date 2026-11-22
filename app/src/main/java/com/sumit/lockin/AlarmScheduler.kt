@@ -19,9 +19,13 @@ object AlarmScheduler {
         }
         val times = state.optJSONArray("times") ?: return
         val enabled = state.optJSONArray("enabledSlots")
+        val sent = state.optJSONArray("sentToday") ?: org.json.JSONArray()
         val day = (state.optInt("day", 1).coerceIn(1, 100) - 1) * 5
         for (i in 0 until minOf(5, times.length())) {
             if (enabled != null && !enabled.optBoolean(i, true)) continue
+            var alreadySent = false
+            for (j in 0 until sent.length()) if (sent.optInt(j) == i) alreadySent = true
+            if (alreadySent) continue
             val item = library.optJSONObject(day + i) ?: continue
             schedule(context, "builtin", i, item.optString("text"), times.optString(i), i)
         }
@@ -84,7 +88,7 @@ object AlarmScheduler {
 
     fun cancelAll(context: Context) {
         val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        for (i in 0..199) {
+        for (i in 0..10000) {
             val pending = PendingIntent.getBroadcast(context, i, Intent(context, ReminderReceiver::class.java), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
             if (pending != null) alarms.cancel(pending)
         }
@@ -108,7 +112,10 @@ object AlarmScheduler {
                 sent.put(slot)
                 state.put("sentToday", sent)
                 state.put("completed", (state.optInt("completed") + 1).coerceAtMost(500))
-                if (sent.length() >= 5) {
+                val enabledSlots = state.optJSONArray("enabledSlots")
+                var activeCount = 0
+                for (i in 0 until 5) if (enabledSlots == null || enabledSlots.optBoolean(i, true)) activeCount++
+                if (activeCount > 0 && sent.length() >= activeCount) {
                     state.put("sentToday", org.json.JSONArray())
                     state.put("day", if (state.optInt("day", 1) >= 100) 1 else state.optInt("day", 1) + 1)
                 }

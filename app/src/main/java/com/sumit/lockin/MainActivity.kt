@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
     }
 
     class NotificationBridge(private val context: Context) {
+        @JavascriptInterface fun getSavedState(): String = context.getSharedPreferences("lockin_native", Context.MODE_PRIVATE).getString("payload", "") ?: ""
+
         @JavascriptInterface fun sync(payload: String) {
             context.getSharedPreferences("lockin_native", Context.MODE_PRIVATE).edit().putString("payload", payload).apply()
             try { AlarmScheduler.sync(context, JSONObject(payload)) } catch (_: Exception) { }

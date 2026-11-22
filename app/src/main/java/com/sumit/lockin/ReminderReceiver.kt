@@ -20,6 +20,6 @@ class ReminderReceiver : BroadcastReceiver() {
             .build()
         val notificationId = if (intent.getStringExtra("type") == "custom") id else 500 + id
         context.getSystemService(NotificationManager::class.java).notify(notificationId, notification)
-        AlarmScheduler.rescheduleNext(context, intent)
+        AlarmScheduler.recordDelivery(context, intent)
     }
 }

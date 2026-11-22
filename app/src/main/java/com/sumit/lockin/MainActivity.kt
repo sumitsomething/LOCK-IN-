@@ -41,6 +41,11 @@ class MainActivity : ComponentActivity() {
         webView.loadUrl("file:///android_asset/lockin.html")
     }
 
+    override fun onResume() {
+        super.onResume()
+        AlarmScheduler.restore(this)
+    }
+
     private fun createChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
             val channel = NotificationChannel("lockin_reminders", "LOCKIN reminders", NotificationManager.IMPORTANCE_HIGH)

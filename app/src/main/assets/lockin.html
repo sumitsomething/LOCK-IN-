@@ -143,7 +143,7 @@ function checkDue(){const now=new Date(),hh=pad(now.getHours())+":"+pad(now.getM
  state.custom.filter(x=>x.on&&x.time===hh).forEach(x=>{const key="lockin_custom_"+today+"_"+x.id;if(!localStorage.getItem(key)){if(notify(x.text))localStorage.setItem(key,"1")}});
 }
 if("Notification"in window&&Notification.permission==="default"){/* Permission is requested only after the user taps the schedule save button. */}
-function requestPermission(){if("Notification"in window&&Notification.permission==="default")Notification.requestPermission().then(()=>toast("Notification permission: "+Notification.permission))}
+function requestPermission(){if(window.AndroidNotifications){window.AndroidNotifications.requestPermissions();return}if("Notification"in window&&Notification.permission==="default")Notification.requestPermission().then(()=>toast("Notification permission: "+Notification.permission))}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkDue()});
 setInterval(checkDue,15000);
 render();
